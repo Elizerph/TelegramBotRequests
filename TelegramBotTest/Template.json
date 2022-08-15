@@ -1,0 +1,14 @@
+{
+	"Title": "Новая заявка",
+	"CompletedMessage": "Заявка создана",
+	"AcceptButtonLabel": "Принять",
+	"AcceptedTitle": "Заявка принята <user>",
+	"RejectButtonLabel": "Отклонить",
+	"RejectedTitle": "Заявка отклонена <user>",
+	"FieldNames": [
+		"Тема",
+		"Телефон",
+		"Адрес",
+		"Время"
+	]
+}
