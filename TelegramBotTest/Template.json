@@ -3,8 +3,10 @@
 	"CompletedMessage": "Заявка создана",
 	"AcceptButtonLabel": "Принять",
 	"AcceptedTitle": "Заявка принята <user>",
-	"RejectButtonLabel": "Отклонить",
-	"RejectedTitle": "Заявка отклонена <user>",
+	"DoneTitle": "Выполнено <user>",
+	"DropTitle": "Не выполнено <user>",
+	"DoneButtonLabel": "Выполнено",
+	"DropButtonLabel": "Не выполнено",
 	"FieldNames": [
 		"Тема",
 		"Телефон",

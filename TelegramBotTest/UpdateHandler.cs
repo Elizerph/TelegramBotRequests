@@ -1,6 +1,4 @@
-﻿using Newtonsoft.Json;
-
-using Telegram.Bot;
+﻿using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -10,111 +8,87 @@ namespace TelegramBotTest
 {
     public class UpdateHandler : IUpdateHandler
     {
-        public readonly static string NewRequestCommand = "/setthischat";
-        public readonly static string SetChatCommand = "/newrequest";
+        private readonly Bot _bot;
 
-        private const string TargetChatIdFile = "ChatId.txt";
-        private const string TemplateFile = "Template.json";
-
-        private long _targetChatId;
-        private RequestTemplate _template = new()
+        public UpdateHandler(Bot bot)
         {
-            Title = "Новая заявка",
-            AcceptButtonLabel = "Принять",
-            AcceptedTitle = "Заявка принята <user>",
-            RejectButtonLabel = "Отклонить",
-            RejectedTitle = "Заявка отклонена <user>",
-            CompletedMessage = "Заявка создана",
-            FieldNames = new[] { "Тема", "Телефон", "Адрес", "Время" } 
-        };
-        private readonly Dictionary<long, Request> _requests = new();
-
-        public async Task Init()
-        {
-            if (!System.IO.File.Exists(TargetChatIdFile))
-                await System.IO.File.WriteAllTextAsync(TargetChatIdFile, "0");
-            _targetChatId = long.Parse(await System.IO.File.ReadAllTextAsync(TargetChatIdFile));
-            if (!System.IO.File.Exists(TemplateFile))
-                await System.IO.File.WriteAllTextAsync(TemplateFile, JsonConvert.SerializeObject(_template));
-            var templateText = await System.IO.File.ReadAllTextAsync(TemplateFile);
-            _template = JsonConvert.DeserializeObject<RequestTemplate>(templateText);
+            _bot = bot;
         }
 
-        public async Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+        public Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
-            Console.WriteLine(exception.Message);
+            Console.WriteLine(string.Join(Environment.NewLine, new[] { exception.GetType().ToString(), exception.Message, exception.StackTrace }));
+            return Task.CompletedTask;
         }
 
         public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+        {
+            var response = await _bot.Handle(GetRequest(update));
+            await ExecuteResponse(response, botClient);
+        }
+
+        private static BotUser GetUser(User user)
+        {
+            return new BotUser
+            {
+                Id = user.Id,
+                UserName = user.Username,
+                FirstName = user.FirstName,
+                LastName = user.LastName
+            };
+        }
+
+        private static BotChat GetChat(Chat chat)
+        {
+            return new BotChat
+            { 
+                Title = chat.Title,
+                Id = chat.Id
+            };
+        }
+
+        private static BotRequest GetRequest(Update update)
         {
             var message = update.Message;
             switch (update.Type)
             {
                 case UpdateType.Message:
-                    var messageText = message.Text;
-                    var userId = message.From.Id;
-                    var chatId = message.Chat.Id;
-                    if (string.Equals(messageText, SetChatCommand))
-                    {
-                        _targetChatId = chatId;
-                        await System.IO.File.WriteAllTextAsync(TargetChatIdFile, _targetChatId.ToString(), cancellationToken);
-                        Console.WriteLine($"Chat to post requests: {message.Chat.Title}");
-                    }
-                    else if (string.Equals(messageText, NewRequestCommand))
-                    {
-                        var newRequest = new Request();
-                        _requests[userId] = newRequest;
-                        await botClient.SendTextMessageAsync(chatId, $"{_template.FieldNames[0]}:", cancellationToken: cancellationToken);
-                    } 
-                    else if (_requests.TryGetValue(userId, out var request))
-                    {
-                        request.Fields[_template.FieldNames[request.EditState]] = messageText;
-                        request.EditState++;
-                        if (request.EditState < _template.FieldNames.Length)
-                        {
-                            await botClient.SendTextMessageAsync(chatId, $"{_template.FieldNames[request.EditState]}:", cancellationToken: cancellationToken);
-                        }
-                        else
-                        {
-                            await botClient.SendTextMessageAsync(chatId, _template.CompletedMessage, cancellationToken: cancellationToken);
-
-                            var response = new List<string>
-                            {
-                                _template.Title
-                            };
-                            response.AddRange(request.Fields.Select(p => $"{p.Key}: {p.Value}"));
-                            var buttons = new[]
-                            {
-                                    InlineKeyboardButton.WithCallbackData(_template.AcceptButtonLabel),
-                                    InlineKeyboardButton.WithCallbackData(_template.RejectButtonLabel)
-                            };
-                            var markup = new InlineKeyboardMarkup(buttons);
-                            if (_targetChatId != 0L)
-                                await botClient.SendTextMessageAsync(_targetChatId, string.Join(Environment.NewLine, response), replyMarkup: markup, cancellationToken: cancellationToken);
-                            _requests.Remove(userId);
-                        }
-                    }
-                    break;
+                    return new BotRequest
+                    { 
+                        User = GetUser(message.From),
+                        Chat = GetChat(message.Chat),
+                        MessageId = message.MessageId,
+                        Text = message.Text
+                    };
                 case UpdateType.CallbackQuery:
-                    message = update.CallbackQuery.Message;
-                    var data = update.CallbackQuery.Data;
-                    var from = update.CallbackQuery.From;
-                    var fromFullName = $"{from.FirstName} {from.LastName}".Trim();
-                    var titleTemplate = "newState";
-                    if (string.Equals(data, _template.AcceptButtonLabel))
+                    var query = update.CallbackQuery;
+                    return new BotRequest
                     {
-                        titleTemplate = _template.AcceptedTitle;
-                    }
-                    else if (string.Equals(data, _template.RejectButtonLabel))
-                    {
-                        titleTemplate = _template.RejectedTitle;
-                    }
-                    var newTitle = titleTemplate.Replace("<user>", $"{from.Username} ({fromFullName})");
-                    await botClient.EditMessageTextAsync(message.Chat.Id, message.MessageId, message.Text.Replace(_template.Title, newTitle), cancellationToken: cancellationToken);
-                    break;
+                        User = GetUser(query.From),
+                        Chat = GetChat(query.Message.Chat),
+                        MessageId = query.Message.MessageId,
+                        Text = query.Message.Text,
+                        Button = query.Data
+                    };
                 default:
-                    break;
+                    throw new ArgumentOutOfRangeException(nameof(update.Type));
             }
+        }
+
+        private static async Task ExecuteResponse(BotResponse response, ITelegramBotClient client)
+        {
+            if (response.PostMessages != null)
+                foreach (var postMessage in response.PostMessages)
+                {
+                    var buttons = postMessage.Buttons?.Select(p => InlineKeyboardButton.WithCallbackData(p.Value, p.Key)).ToArray() ?? Array.Empty<InlineKeyboardButton>();
+                    await client.SendTextMessageAsync(postMessage.ChatId, postMessage.Text, replyMarkup: new InlineKeyboardMarkup(buttons));
+                }
+            if (response.EditMessages != null)
+                foreach (var editMessage in response.EditMessages)
+                {
+                    var buttons = editMessage.Buttons?.Select(p => InlineKeyboardButton.WithCallbackData(p.Value, p.Key)).ToArray() ?? Array.Empty<InlineKeyboardButton>();
+                    await client.EditMessageTextAsync(editMessage.ChatId, editMessage.MessageId, editMessage.Text, replyMarkup: new InlineKeyboardMarkup(buttons));
+                }
         }
     }
 }
