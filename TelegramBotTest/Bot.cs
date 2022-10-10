@@ -9,6 +9,7 @@ namespace TelegramBotTest
     public class Bot
     {
         private Dictionary<string, Func<BotRequest, Task<BotResponse>>> _commands;
+        private Dictionary<string, Func<BotRequest, string[], Task<BotResponse>>> _buttons;
 
         private const string TargetChatIdFile = "ChatId.txt";
         private const string TemplateFile = "Template.json";
@@ -30,6 +31,23 @@ namespace TelegramBotTest
 
         public async Task Init(ITelegramBotClient botClient)
         {
+            if (!File.Exists(TargetChatIdFile))
+                await File.WriteAllTextAsync(TargetChatIdFile, "0");
+            _targetChatId = long.Parse(await File.ReadAllTextAsync(TargetChatIdFile));
+            if (!File.Exists(TemplateFile))
+                await File.WriteAllTextAsync(TemplateFile, JsonConvert.SerializeObject(_template));
+            var templateText = await File.ReadAllTextAsync(TemplateFile);
+            _template = JsonConvert.DeserializeObject<RequestTemplate>(templateText);
+
+            var buttons = new[]
+            {
+                new BotButton { Moniker = "accept", Label = _template.AcceptButtonLabel, Method = ExecuteButtonAccept },
+                new BotButton { Moniker = "done", Label = _template.DoneButtonLabel, Method = ExecuteButtonDone },
+                new BotButton { Moniker = "drop", Label = _template.DropButtonLabel, Method = ExecuteButtonDrop }
+            };
+
+            _buttons = buttons.ToDictionary(e => e.Moniker, e => e.Method);
+
             var commands = new[]
             {
                 new BotCommand { Moniker = "/newrequest", Description = "Новая заявка", Method = ExecuteNewRequest },
@@ -40,14 +58,6 @@ namespace TelegramBotTest
             _commands = commands.ToDictionary(e => e.Moniker, e => e.Method, BotCommandComparer.FromMoniker($"@{botMe.Username}"));
             await botClient.DeleteMyCommandsAsync();
             await botClient.SetMyCommandsAsync(commands.Select(e => new Telegram.Bot.Types.BotCommand { Command = e.Moniker, Description = e.Description }));
-
-            if (!File.Exists(TargetChatIdFile))
-                await File.WriteAllTextAsync(TargetChatIdFile, "0");
-            _targetChatId = long.Parse(await File.ReadAllTextAsync(TargetChatIdFile));
-            if (!File.Exists(TemplateFile))
-                await File.WriteAllTextAsync(TemplateFile, JsonConvert.SerializeObject(_template));
-            var templateText = await File.ReadAllTextAsync(TemplateFile);
-            _template = JsonConvert.DeserializeObject<RequestTemplate>(templateText);
         }
 
         private static string ReplaceWithUser(string text, BotUser user)
@@ -55,75 +65,23 @@ namespace TelegramBotTest
             return text.Replace("<user>", $"@{user.UserName} ({$"{user.FirstName} {user.LastName}".Trim()})");
         }
 
+        private static string ChangeTitle(string text, string newTitle)
+        {
+            var lines = text.SplitLines().ToList();
+            lines.RemoveAt(0);
+            lines.Insert(0, newTitle);
+            return string.Join(Environment.NewLine, lines);
+        }
+
         public async Task<BotResponse> Handle(BotRequest botRequest)
         {
             if (!string.IsNullOrEmpty(botRequest.Button))
             {
-                if (string.Equals("accept", botRequest.Button))
-                {
-                    var lines = botRequest.Text.SplitLines().ToList();
-                    lines.RemoveAt(0);
-                    lines.Insert(0, ReplaceWithUser(_template.AcceptedTitle, botRequest.User));
-                    return new BotResponse
-                    {
-                        EditMessages = new[]
-                        {
-                            new BotReponseEditMessage
-                            {
-                                ChatId = botRequest.Chat.Id,
-                                MessageId = botRequest.MessageId,
-                                Text = string.Join(Environment.NewLine, lines),
-                                Buttons = new Dictionary<string, string>
-                                {
-                                    { $"done_{botRequest.User.Id}", _template.DoneButtonLabel },
-                                    { $"drop_{botRequest.User.Id}", _template.DropButtonLabel }
-                                }
-                            }
-                        }
-                    };
-                }
-                else if (botRequest.Button.StartsWith("done_"))
-                {
-                    if (long.Parse(botRequest.Button.Replace("done_", string.Empty)) == botRequest.User.Id)
-                    {
-                        var lines = botRequest.Text.SplitLines().ToList();
-                        lines.RemoveAt(0);
-                        lines.Insert(0, ReplaceWithUser(_template.DoneTitle, botRequest.User));
-                        return new BotResponse
-                        {
-                            EditMessages = new[]
-                            {
-                                new BotReponseEditMessage
-                                {
-                                    ChatId = botRequest.Chat.Id,
-                                    MessageId = botRequest.MessageId,
-                                    Text = string.Join(Environment.NewLine, lines)
-                                }
-                            }
-                        };
-                    }
-                }
-                else if (botRequest.Button.StartsWith("drop_"))
-                {
-                    if (long.Parse(botRequest.Button.Replace("drop_", string.Empty)) == botRequest.User.Id)
-                    {
-                        var lines = botRequest.Text.SplitLines().ToList();
-                        lines.RemoveAt(0);
-                        lines.Insert(0, ReplaceWithUser(_template.DropTitle, botRequest.User));
-                        return new BotResponse
-                        {
-                            EditMessages = new[]
-                            {
-                                new BotReponseEditMessage
-                                {
-                                    ChatId = botRequest.Chat.Id,
-                                    MessageId = botRequest.MessageId,
-                                    Text = string.Join(Environment.NewLine, lines)
-                                }
-                            }
-                        };
-                    }
-                }
+                var buttonData = botRequest.Button.Split('$');
+                var action = buttonData[0];
+                var parameters = buttonData.Skip(1).ToArray();
+                if (_buttons.TryGetValue(action, out var buttonMethod))
+                    return await buttonMethod(botRequest, parameters);
             }
 
             if (string.IsNullOrWhiteSpace(botRequest.Text))
@@ -188,6 +146,65 @@ namespace TelegramBotTest
             await File.WriteAllTextAsync(TargetChatIdFile, _targetChatId.ToString());
             Console.WriteLine($"Chat to post requests: {request.Chat.Title}");
             return BotResponse.Empty;
+        }
+
+        private async Task<BotResponse> ExecuteButtonAccept(BotRequest botRequest, string[] parameters)
+        {
+            return new BotResponse
+            {
+                EditMessages = new[]
+                {
+                    new BotReponseEditMessage
+                    {
+                        ChatId = botRequest.Chat.Id,
+                        MessageId = botRequest.MessageId,
+                        Text = ChangeTitle(botRequest.Text, ReplaceWithUser(_template.AcceptedTitle, botRequest.User)),
+                        Buttons = new Dictionary<string, string>
+                        {
+                            { $"done${botRequest.User.Id}", _template.DoneButtonLabel },
+                            { $"drop${botRequest.User.Id}", _template.DropButtonLabel }
+                        }
+                    }
+                }
+            };
+        }
+
+        private Task<BotResponse> ExecuteButtonDone(BotRequest botRequest, string[] parameters)
+        {
+            if (parameters.Length >= 1 && long.TryParse(parameters[0], out var userId) && userId == botRequest.User.Id)
+            {
+                var newText = ReplaceWithUser(_template.DoneTitle, botRequest.User);
+                var response = GetChangeMessageTitleResponse(botRequest.Chat.Id, botRequest.MessageId, botRequest.Text, newText);
+                return Task.FromResult(response);
+            }
+            return Task.FromResult(BotResponse.Empty);
+        }
+
+        private Task<BotResponse> ExecuteButtonDrop(BotRequest botRequest, string[] parameters)
+        {
+            if (parameters.Length >= 1 && long.TryParse(parameters[0], out var userId) && userId == botRequest.User.Id)
+            {
+                var newText = ReplaceWithUser(_template.DropTitle, botRequest.User);
+                var response = GetChangeMessageTitleResponse(botRequest.Chat.Id, botRequest.MessageId, botRequest.Text, newText);
+                return Task.FromResult(response);
+            }
+            return Task.FromResult(BotResponse.Empty);
+        }
+
+        private static BotResponse GetChangeMessageTitleResponse(long chatId, int messageId, string text, string newTitle)
+        {
+            return new BotResponse
+            {
+                EditMessages = new[]
+                {
+                    new BotReponseEditMessage
+                    {
+                        ChatId = chatId,
+                        MessageId = messageId,
+                        Text = ChangeTitle(text, newTitle)
+                    }
+                }
+            };
         }
     }
 }
