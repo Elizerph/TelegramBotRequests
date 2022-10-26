@@ -1,6 +1,6 @@
 ﻿namespace TelegramBotTest
 {
-    public class RequestTemplate
+    public class TicketTemplate
     {
         public string Title { get; set; }
         public string CompletedMessage { get; set; }

@@ -4,8 +4,9 @@
     {
         public BotChat Chat { get; set; }
         public BotUser User { get; set; }
-        public string Button { get; set; }
+        public BotFile? File { get; set; }
+        public string? Button { get; set; }
         public int MessageId { get; set; }
-        public string Text { get; set; }
+        public string? Text { get; set; }
     }
 }

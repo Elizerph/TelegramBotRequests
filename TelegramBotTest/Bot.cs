@@ -1,12 +1,10 @@
-﻿using Newtonsoft.Json;
-
-using Telegram.Bot;
-
-using File = System.IO.File;
+﻿using Telegram.Bot;
+using TelegramBotTest.Logs;
+using TelegramBotTest.Utils;
 
 namespace TelegramBotTest
 {
-    public class Bot
+    public class Bot : BotBase
     {
         private Dictionary<string, Func<BotRequest, Task<BotResponse>>> _commands;
         private Dictionary<string, Func<BotRequest, string[], Task<BotResponse>>> _buttons;
@@ -15,7 +13,8 @@ namespace TelegramBotTest
         private const string TemplateFile = "Template.json";
 
         private long _targetChatId;
-        private RequestTemplate _template = new()
+        private TicketTemplate _template;
+        private static TicketTemplate _defaultTemplate = new()
         {
             Title = "Новая заявка",
             AcceptButtonLabel = "Принять",
@@ -27,17 +26,20 @@ namespace TelegramBotTest
             CompletedMessage = "Заявка создана",
             FieldNames = new[] { "Тема", "Телефон", "Адрес", "Время" }
         };
-        private readonly Dictionary<long, Request> _requests = new();
+        private readonly Dictionary<long, Ticket> _editingTickets = new();
+        private long _botId;
+        private readonly Dictionary<int, string> _ticketMessages = new();
+
+        public Bot(long adminId)
+            : base(adminId)
+        {
+        }
 
         public async Task Init(ITelegramBotClient botClient)
         {
-            if (!File.Exists(TargetChatIdFile))
-                await File.WriteAllTextAsync(TargetChatIdFile, "0");
-            _targetChatId = long.Parse(await File.ReadAllTextAsync(TargetChatIdFile));
-            if (!File.Exists(TemplateFile))
-                await File.WriteAllTextAsync(TemplateFile, JsonConvert.SerializeObject(_template));
-            var templateText = await File.ReadAllTextAsync(TemplateFile);
-            _template = JsonConvert.DeserializeObject<RequestTemplate>(templateText);
+            await Log.WriteInfo("Initialization…");
+            _targetChatId = await TryReadChatId();
+            _template = await TryReadTemplate();
 
             var buttons = new[]
             {
@@ -55,14 +57,33 @@ namespace TelegramBotTest
             };
 
             var botMe = await botClient.GetMeAsync();
+            _botId = botMe.Id;
             _commands = commands.ToDictionary(e => e.Moniker, e => e.Method, BotCommandComparer.FromMoniker($"@{botMe.Username}"));
             await botClient.DeleteMyCommandsAsync();
             await botClient.SetMyCommandsAsync(commands.Select(e => new Telegram.Bot.Types.BotCommand { Command = e.Moniker, Description = e.Description }));
+
+            await Log.WriteInfo("Initialization completed");
         }
 
-        private static string ReplaceWithUser(string text, BotUser user)
+        private static Task<long> TryReadChatId()
         {
-            return text.Replace("<user>", $"@{user.UserName} ({$"{user.FirstName} {user.LastName}".Trim()})");
+            return TryRead("TargetChatId", TargetChatIdFile, FileExtension.TryReadLongAsync, FileExtension.TrySaveLongAsync, 0L);
+        }
+
+        private static Task<TicketTemplate> TryReadTemplate() 
+        {
+            return TryRead("Template", TemplateFile, FileExtension.TryReadAsync<TicketTemplate>, FileExtension.TrySaveAsync, _defaultTemplate);
+        }
+
+        private static string ReplaceWithUserTime(string text, BotUser user)
+        {
+            return ReplaceWithTime(text)
+                .Replace("<user>", $"@{user.UserName} ({$"{user.FirstName} {user.LastName}".Trim()})");
+        }
+
+        private static string ReplaceWithTime(string text)
+        {
+            return text.Replace("<time>", DateTime.Now.ToShortTimeString());
         }
 
         private static string ChangeTitle(string text, string newTitle)
@@ -73,7 +94,7 @@ namespace TelegramBotTest
             return string.Join(Environment.NewLine, lines);
         }
 
-        public async Task<BotResponse> Handle(BotRequest botRequest)
+        public async Task<BotResponse> HandleRequest(BotRequest botRequest)
         {
             if (!string.IsNullOrEmpty(botRequest.Button))
             {
@@ -84,13 +105,25 @@ namespace TelegramBotTest
                     return await buttonMethod(botRequest, parameters);
             }
 
+            if (botRequest.File != null && IsAdminRequest(botRequest))
+            {
+                var file = botRequest.File;
+                if (string.Equals(file.Name, TargetChatIdFile) || string.Equals(file.Name, TemplateFile))
+                    return new BotResponse 
+                    { 
+                        FilesToSave = new[] { file }
+                    };
+                else
+                    return BotResponse.Empty;
+            }
+
             if (string.IsNullOrWhiteSpace(botRequest.Text))
                 return BotResponse.Empty;
 
             if (_commands.TryGetValue(botRequest.Text, out var command))
                 return await command(botRequest);
 
-            if (_requests.TryGetValue(botRequest.User.Id, out var request))
+            if (_editingTickets.TryGetValue(botRequest.User.Id, out var request))
             {
                 request.Fields[_template.FieldNames[request.EditState]] = botRequest.Text;
                 request.EditState++;
@@ -109,21 +142,22 @@ namespace TelegramBotTest
                 if (_targetChatId != 0L)
                 {
                     var requestTextLines = new List<string>
-                    { 
-                        _template.Title
+                    {
+                        ReplaceWithTime(_template.Title)
                     };
                     requestTextLines.AddRange(request.Fields.Select(p => $"{p.Key}: {p.Value}"));
+                    var requestText = string.Join(Environment.NewLine, requestTextLines);
                     postMessages.Add(new BotResponseMessage 
                     { 
                         ChatId = _targetChatId,
-                        Text = string.Join(Environment.NewLine, requestTextLines),
+                        Text = requestText,
                         Buttons = new Dictionary<string, string>
                         {
                             { "accept", _template.AcceptButtonLabel }
                         }
                     });
                 }
-                _requests.Remove(botRequest.User.Id);
+                _editingTickets.Remove(botRequest.User.Id);
                 return new BotResponse
                 { 
                     PostMessages = postMessages
@@ -133,18 +167,46 @@ namespace TelegramBotTest
             return BotResponse.Empty;
         }
 
+        public async Task HandleFeedback(BotFeedback feedback)
+        {
+            foreach (var message in feedback.EditMessages.Concat(feedback.PostMessages))
+                if (message.User.Id == _botId && message.Chat.Id == _targetChatId)
+                    _ticketMessages[message.Id] = message.Text;
+
+            foreach (var fileName in feedback.SavedFiles)
+                if (string.Equals(fileName, TargetChatIdFile))
+                {
+                    await Log.WriteInfo($"new TargetChatId specified");
+                    _targetChatId = await TryReadChatId();
+                }
+                else if (string.Equals(fileName, TemplateFile))
+                {
+                    await Log.WriteInfo($"new Template specified");
+                    _template = await TryReadTemplate();
+                }
+        }
+
         private async Task<BotResponse> ExecuteNewRequest(BotRequest request)
         {
-            var newRequest = new Request();
-            _requests[request.User.Id] = newRequest;
+            var newRequest = new Ticket();
+            _editingTickets[request.User.Id] = newRequest;
             return BotResponse.FromPostMessage(request.Chat.Id, $"{_template.FieldNames[0]}:");
         }
 
         private async Task<BotResponse> ExecuteSetThisChat(BotRequest request)
         {
             _targetChatId = request.Chat.Id;
-            await File.WriteAllTextAsync(TargetChatIdFile, _targetChatId.ToString());
-            Console.WriteLine($"Chat to post requests: {request.Chat.Title}");
+            await Log.WriteInfo($"Chat to post requests: {request.Chat.Title} - {_targetChatId}");
+            await Log.WriteInfo($"Saving TargetChatId to {TargetChatIdFile}…");
+            var saveResult = await FileExtension.TrySaveAsync(TargetChatIdFile, _targetChatId);
+            if (saveResult.IsSuccess)
+                await Log.WriteInfo($"Saving TargetChatId: success");
+            else
+            {
+                await Log.WriteInfo($"Saving TargetChatId: failed - {saveResult.Exception.GetFullInfo()}");
+                throw saveResult.Exception;
+            }
+
             return BotResponse.Empty;
         }
 
@@ -158,7 +220,7 @@ namespace TelegramBotTest
                     {
                         ChatId = botRequest.Chat.Id,
                         MessageId = botRequest.MessageId,
-                        Text = ChangeTitle(botRequest.Text, ReplaceWithUser(_template.AcceptedTitle, botRequest.User)),
+                        Text = ChangeTitle(botRequest.Text, ReplaceWithUserTime(_template.AcceptedTitle, botRequest.User)),
                         Buttons = new Dictionary<string, string>
                         {
                             { $"done${botRequest.User.Id}", _template.DoneButtonLabel },
@@ -173,7 +235,7 @@ namespace TelegramBotTest
         {
             if (parameters.Length >= 1 && long.TryParse(parameters[0], out var userId) && userId == botRequest.User.Id)
             {
-                var newText = ReplaceWithUser(_template.DoneTitle, botRequest.User);
+                var newText = ReplaceWithUserTime(_template.DoneTitle, botRequest.User);
                 var response = GetChangeMessageTitleResponse(botRequest.Chat.Id, botRequest.MessageId, botRequest.Text, newText);
                 return Task.FromResult(response);
             }
@@ -184,7 +246,7 @@ namespace TelegramBotTest
         {
             if (parameters.Length >= 1 && long.TryParse(parameters[0], out var userId) && userId == botRequest.User.Id)
             {
-                var newText = ReplaceWithUser(_template.DropTitle, botRequest.User);
+                var newText = ReplaceWithUserTime(_template.DropTitle, botRequest.User);
                 var response = GetChangeMessageTitleResponse(botRequest.Chat.Id, botRequest.MessageId, botRequest.Text, newText);
                 return Task.FromResult(response);
             }
