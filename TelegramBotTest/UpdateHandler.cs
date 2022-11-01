@@ -5,7 +5,6 @@ using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
 
-using TelegramBotTest.Logs;
 using TelegramBotTest.Utils;
 
 namespace TelegramBotTest
@@ -21,7 +20,8 @@ namespace TelegramBotTest
 
         public Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
-            return Log.WriteInfo(exception.GetFullInfo());
+            Log.WriteInfo("HandlePolling exception", exception);
+            return Task.CompletedTask;
         }
 
         public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -34,7 +34,7 @@ namespace TelegramBotTest
             }
             catch (Exception e)
             {
-                await Log.WriteInfo(e.GetFullInfo());
+                Log.WriteInfo("HandleUpdate exception", e);
                 throw;
             }
         }

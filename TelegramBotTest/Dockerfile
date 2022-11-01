@@ -17,4 +17,5 @@ RUN dotnet publish "TelegramBotTest.csproj" -c Release -o /app/publish /p:UseApp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+VOLUME /app/Logs
 ENTRYPOINT ["dotnet", "TelegramBotTest.dll"]

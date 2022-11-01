@@ -1,6 +1,6 @@
-﻿using Telegram.Bot;
-using TelegramBotTest.Logs;
-using TelegramBotTest.Utils;
+﻿using log4net.Config;
+
+using Telegram.Bot;
 
 namespace TelegramBotTest
 {
@@ -13,23 +13,25 @@ namespace TelegramBotTest
         {
             try
             {
+                XmlConfigurator.Configure();
+
                 var token = Environment.GetEnvironmentVariable(TokenVariableName);
                 if (string.IsNullOrEmpty(token))
                 { 
-                    await Log.WriteInfo("Token is not set");
+                    Log.WriteInfo("Token is not set");
                     return;
                 }
 
                 var admin = Environment.GetEnvironmentVariable(AdminIdVariableName);
                 if (string.IsNullOrEmpty(admin))
                 {
-                    await Log.WriteInfo("Admin is not set");
+                    Log.WriteInfo("Admin is not set");
                     return;
                 }
 
                 if (!long.TryParse(admin, out var adminId))
                 {
-                    await Log.WriteInfo($"Unable to parse {admin} as admin Id");
+                    Log.WriteInfo($"Unable to parse {admin} as admin Id");
                     return;
                 }
 
@@ -41,13 +43,13 @@ namespace TelegramBotTest
                 var cts = new CancellationTokenSource();
                 Console.CancelKeyPress += (_, _) => cts.Cancel();
 
-                await Log.WriteInfo("Bot started. Press ^C to stop");
+                Log.WriteInfo("Bot started. Press ^C to stop");
                 await client.ReceiveAsync(updateHandler, cancellationToken: cts.Token);
-                await Log.WriteInfo("Bot stopped");
+                Log.WriteInfo("Bot stopped");
             }
             catch (Exception ex)
             {
-                await Log.WriteInfo(ex.GetFullInfo());
+                Log.WriteInfo("Generic exception", ex);
                 throw;
             }
         }

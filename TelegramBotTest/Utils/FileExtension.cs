@@ -18,17 +18,16 @@ namespace TelegramBotTest.Utils
             }
         }
 
-        public static async Task<TryAsyncResult<long>> TryReadLongAsync(string file)
+        public static async Task<TryAsyncResult<string>> TryReadAsync(string file)
         {
             try
             {
                 var text = await File.ReadAllTextAsync(file);
-                var result = long.Parse(text);
-                return TryAsyncResult.FromResult(result);
+                return TryAsyncResult.FromResult(text);
             }
             catch (Exception e)
             {
-                return TryAsyncResult.FromException<long>(e);
+                return TryAsyncResult.FromException<string>(e);
             }
         }
 
@@ -46,11 +45,11 @@ namespace TelegramBotTest.Utils
             }
         }
 
-        public static async Task<TryAsyncResult> TrySaveLongAsync(string file, long value)
+        public static async Task<TryAsyncResult> TrySaveAsync(string file, string value)
         {
             try
             {
-                await File.WriteAllTextAsync(file, value.ToString());
+                await File.WriteAllTextAsync(file, value);
                 return TryAsyncResult.Success;
             }
             catch (Exception e)

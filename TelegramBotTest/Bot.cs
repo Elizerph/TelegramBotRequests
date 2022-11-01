@@ -1,5 +1,4 @@
 ﻿using Telegram.Bot;
-using TelegramBotTest.Logs;
 using TelegramBotTest.Utils;
 
 namespace TelegramBotTest
@@ -14,7 +13,7 @@ namespace TelegramBotTest
 
         private long _targetChatId;
         private TicketTemplate _template;
-        private static TicketTemplate _defaultTemplate = new()
+        private static readonly TicketTemplate _defaultTemplate = new()
         {
             Title = "Новая заявка",
             AcceptButtonLabel = "Принять",
@@ -28,7 +27,6 @@ namespace TelegramBotTest
         };
         private readonly Dictionary<long, Ticket> _editingTickets = new();
         private long _botId;
-        private readonly Dictionary<int, string> _ticketMessages = new();
 
         public Bot(long adminId)
             : base(adminId)
@@ -37,7 +35,7 @@ namespace TelegramBotTest
 
         public async Task Init(ITelegramBotClient botClient)
         {
-            await Log.WriteInfo("Initialization…");
+            Log.WriteInfo("Initialization…");
             _targetChatId = await TryReadChatId();
             _template = await TryReadTemplate();
 
@@ -62,12 +60,16 @@ namespace TelegramBotTest
             await botClient.DeleteMyCommandsAsync();
             await botClient.SetMyCommandsAsync(commands.Select(e => new Telegram.Bot.Types.BotCommand { Command = e.Moniker, Description = e.Description }));
 
-            await Log.WriteInfo("Initialization completed");
+            Log.WriteInfo("Initialization completed");
         }
 
-        private static Task<long> TryReadChatId()
+        private static async Task<long> TryReadChatId()
         {
-            return TryRead("TargetChatId", TargetChatIdFile, FileExtension.TryReadLongAsync, FileExtension.TrySaveLongAsync, 0L);
+            var value = await TryRead("TargetChatId", TargetChatIdFile, FileExtension.TryReadAsync, FileExtension.TrySaveAsync, "0");
+            if (long.TryParse(value, out long result))
+                return result;
+            else
+                return 0L;
         }
 
         private static Task<TicketTemplate> TryReadTemplate() 
@@ -169,19 +171,15 @@ namespace TelegramBotTest
 
         public async Task HandleFeedback(BotFeedback feedback)
         {
-            foreach (var message in feedback.EditMessages.Concat(feedback.PostMessages))
-                if (message.User.Id == _botId && message.Chat.Id == _targetChatId)
-                    _ticketMessages[message.Id] = message.Text;
-
             foreach (var fileName in feedback.SavedFiles)
                 if (string.Equals(fileName, TargetChatIdFile))
                 {
-                    await Log.WriteInfo($"new TargetChatId specified");
+                    Log.WriteInfo($"new TargetChatId specified");
                     _targetChatId = await TryReadChatId();
                 }
                 else if (string.Equals(fileName, TemplateFile))
                 {
-                    await Log.WriteInfo($"new Template specified");
+                    Log.WriteInfo($"new Template specified");
                     _template = await TryReadTemplate();
                 }
         }
@@ -196,14 +194,14 @@ namespace TelegramBotTest
         private async Task<BotResponse> ExecuteSetThisChat(BotRequest request)
         {
             _targetChatId = request.Chat.Id;
-            await Log.WriteInfo($"Chat to post requests: {request.Chat.Title} - {_targetChatId}");
-            await Log.WriteInfo($"Saving TargetChatId to {TargetChatIdFile}…");
+            Log.WriteInfo($"Chat to post requests: {request.Chat.Title} - {_targetChatId}");
+            Log.WriteInfo($"Saving TargetChatId to {TargetChatIdFile}…");
             var saveResult = await FileExtension.TrySaveAsync(TargetChatIdFile, _targetChatId);
             if (saveResult.IsSuccess)
-                await Log.WriteInfo($"Saving TargetChatId: success");
+                Log.WriteInfo($"Saving TargetChatId: success");
             else
             {
-                await Log.WriteInfo($"Saving TargetChatId: failed - {saveResult.Exception.GetFullInfo()}");
+                Log.WriteInfo($"Saving TargetChatId: failed", saveResult.Exception);
                 throw saveResult.Exception;
             }
 
