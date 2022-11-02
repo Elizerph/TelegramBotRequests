@@ -1,5 +1,7 @@
 ﻿using log4net.Config;
 
+using System.Reflection;
+
 using Telegram.Bot;
 
 namespace TelegramBotTest
@@ -13,7 +15,10 @@ namespace TelegramBotTest
         {
             try
             {
-                XmlConfigurator.Configure();
+                XmlConfigurator.Configure(); 
+                var assembly = Assembly.GetExecutingAssembly();
+                var assemblyVersion = assembly.GetName().Version;
+                Log.WriteInfo($"Version {assemblyVersion}");
 
                 var token = Environment.GetEnvironmentVariable(TokenVariableName);
                 if (string.IsNullOrEmpty(token))
