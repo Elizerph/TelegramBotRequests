@@ -4,28 +4,6 @@ namespace TelegramBotTest
 {
     public class BotBase
     {
-        private readonly long _adminId;
-
-        public BotBase(long adminId)
-        {
-            _adminId = adminId;
-        }
-
-        protected bool IsAdmin(long userId)
-        { 
-            return userId == _adminId;
-        }
-
-        protected bool IsAdmin(BotUser user)
-        {
-            return IsAdmin(user.Id);
-        }
-
-        protected bool IsAdminRequest(BotRequest request)
-        {
-            return request.Chat.IsPrivate && IsAdmin(request.User);
-        }
-
         public static Stream? GetFile(BotFile file)
         {
             if (File.Exists(file.Name))

@@ -16,7 +16,6 @@ services:
     container_name: telegrambottest-bot
     environment:
       - token=${token}
-      - admin=${admin}
   web:
     image: ryujinnokenwokurae/telegrambottestweb
     build:

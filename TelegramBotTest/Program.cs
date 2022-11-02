@@ -9,7 +9,6 @@ namespace TelegramBotTest
     class Program
     {
         private const string TokenVariableName = "token";
-        private const string AdminIdVariableName = "admin";
 
         static async Task Main(string[] args)
         {
@@ -27,21 +26,8 @@ namespace TelegramBotTest
                     return;
                 }
 
-                var admin = Environment.GetEnvironmentVariable(AdminIdVariableName);
-                if (string.IsNullOrEmpty(admin))
-                {
-                    Log.WriteInfo("Admin is not set");
-                    return;
-                }
-
-                if (!long.TryParse(admin, out var adminId))
-                {
-                    Log.WriteInfo($"Unable to parse {admin} as admin Id");
-                    return;
-                }
-
                 var client = new TelegramBotClient(token);
-                var bot = new Bot(adminId);
+                var bot = new Bot();
                 await bot.Init(client);
                 var updateHandler = new UpdateHandler(bot);
 

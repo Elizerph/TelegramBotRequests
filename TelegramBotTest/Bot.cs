@@ -27,11 +27,6 @@ namespace TelegramBotTest
         };
         private readonly Dictionary<long, Ticket> _editingTickets = new();
 
-        public Bot(long adminId)
-            : base(adminId)
-        {
-        }
-
         public async Task Init(ITelegramBotClient botClient)
         {
             Log.WriteInfo("Initialization…");
@@ -103,18 +98,6 @@ namespace TelegramBotTest
                 var parameters = buttonData.Skip(1).ToArray();
                 if (_buttons.TryGetValue(action, out var buttonMethod))
                     return await buttonMethod(botRequest, parameters);
-            }
-
-            if (botRequest.File != null && IsAdminRequest(botRequest))
-            {
-                var file = botRequest.File;
-                if (string.Equals(file.Name, TargetChatIdFile) || string.Equals(file.Name, TemplateFile))
-                    return new BotResponse 
-                    { 
-                        FilesToSave = new[] { file }
-                    };
-                else
-                    return BotResponse.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(botRequest.Text))
