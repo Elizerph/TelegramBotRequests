@@ -8,8 +8,8 @@ namespace TelegramBotTest
         private Dictionary<string, Func<BotRequest, Task<BotResponse>>> _commands;
         private Dictionary<string, Func<BotRequest, string[], Task<BotResponse>>> _buttons;
 
-        private const string TargetChatIdFile = "ChatId.txt";
-        private const string TemplateFile = "Template.json";
+        private const string TargetChatIdFile = "Data/ChatId.txt";
+        private const string TemplateFile = "Data/Template.json";
 
         private long _targetChatId;
         private TicketTemplate _template;
@@ -26,7 +26,6 @@ namespace TelegramBotTest
             FieldNames = new[] { "Тема", "Телефон", "Адрес", "Время" }
         };
         private readonly Dictionary<long, Ticket> _editingTickets = new();
-        private long _botId;
 
         public Bot(long adminId)
             : base(adminId)
@@ -55,7 +54,6 @@ namespace TelegramBotTest
             };
 
             var botMe = await botClient.GetMeAsync();
-            _botId = botMe.Id;
             _commands = commands.ToDictionary(e => e.Moniker, e => e.Method, BotCommandComparer.FromMoniker($"@{botMe.Username}"));
             await botClient.DeleteMyCommandsAsync();
             await botClient.SetMyCommandsAsync(commands.Select(e => new Telegram.Bot.Types.BotCommand { Command = e.Moniker, Description = e.Description }));

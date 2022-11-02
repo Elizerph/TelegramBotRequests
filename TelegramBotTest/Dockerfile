@@ -18,4 +18,5 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 VOLUME /app/Logs
+VOLUME /app/Data
 ENTRYPOINT ["dotnet", "TelegramBotTest.dll"]

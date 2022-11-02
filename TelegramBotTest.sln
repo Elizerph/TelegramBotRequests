@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TelegramBotTest", "Telegram
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TelegramBotTest.Test", "TelegramBotTest.Test\TelegramBotTest.Test.csproj", "{FF80BD23-14BC-4678-8F6A-34FF965B8051}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelegramBotTest.Web", "TelegramBotTest.Web\TelegramBotTest.Web.csproj", "{FEAC5ABD-3B40-42EC-BBF0-2DAC3334D7CD}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{54970254-D9F2-4513-AAAD-9571710AF0C0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{FF80BD23-14BC-4678-8F6A-34FF965B8051}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF80BD23-14BC-4678-8F6A-34FF965B8051}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FF80BD23-14BC-4678-8F6A-34FF965B8051}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FEAC5ABD-3B40-42EC-BBF0-2DAC3334D7CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FEAC5ABD-3B40-42EC-BBF0-2DAC3334D7CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FEAC5ABD-3B40-42EC-BBF0-2DAC3334D7CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FEAC5ABD-3B40-42EC-BBF0-2DAC3334D7CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54970254-D9F2-4513-AAAD-9571710AF0C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54970254-D9F2-4513-AAAD-9571710AF0C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54970254-D9F2-4513-AAAD-9571710AF0C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54970254-D9F2-4513-AAAD-9571710AF0C0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

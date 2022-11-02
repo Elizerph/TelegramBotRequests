@@ -1,0 +1,66 @@
+﻿@page "/"
+@inject IJSRuntime JS
+
+<PageTitle>Index</PageTitle>
+
+<h1>Telegram bot</h1>
+
+<div>
+    <button @onclick="DownloadFileChatId">
+        Download ChatId.txt
+    </button>
+    <label>
+        Upload ChatId.txt
+        <InputFile OnChange="@UploadFileChatId" />
+    </label>
+</div>
+<div>
+    <button @onclick="DownloadFileTemplate">
+        Download Template.txt
+    </button>
+    <label>
+        Upload Template.txt
+        <InputFile OnChange="@UploadFileTemplate" />
+    </label>
+</div>
+
+@code{
+    private async Task DownloadFile(string file)
+    {
+        if (!File.Exists(file))
+            return;
+
+        var fileStream = File.OpenRead(file);
+
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JS.InvokeVoidAsync("downloadFileFromStream", file, streamRef);
+    }
+
+    private Task DownloadFileChatId()
+    {
+        return DownloadFile("Data/ChatId.txt");
+    }
+
+    private Task DownloadFileTemplate()
+    {
+        return DownloadFile("Data/Template.json");
+    }
+
+    private async Task UploadFile(string file, InputFileChangeEventArgs e)
+    {
+        using var stream = e.File.OpenReadStream();
+        using var fileStream = new FileStream(file, FileMode.Create);
+        await stream.CopyToAsync(fileStream);
+    }
+
+    private Task UploadFileChatId(InputFileChangeEventArgs e)
+    {
+        return UploadFile("Data/ChatId.txt", e);
+    }
+
+    private Task UploadFileTemplate(InputFileChangeEventArgs e)
+    {
+        return UploadFile("Data/Template.json", e);
+    }
+}

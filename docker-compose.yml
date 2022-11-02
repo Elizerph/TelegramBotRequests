@@ -1,0 +1,30 @@
+volumes:
+  data:
+    name: telegrambottest-data
+  logs:
+    name: telegrambottest-logs
+services:
+  bot:
+    image: ryujinnokenwokurae/telegrambottest
+    build:
+      context: .
+      dockerfile: TelegramBotTest/Dockerfile
+    volumes:
+      - data:/app/Data
+      - logs:/app/Logs
+    restart: always
+    container_name: telegrambottest-bot
+    environment:
+      - token=${token}
+      - admin=${admin}
+  web:
+    image: ryujinnokenwokurae/telegrambottestweb
+    build:
+      context: .
+      dockerfile: TelegramBotTest.Web/Dockerfile
+    ports:
+      - "8080:80"
+    volumes:
+      - data:/app/Data
+    restart: always
+    container_name: telegrambottest-web
