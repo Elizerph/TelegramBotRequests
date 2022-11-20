@@ -1,15 +1,18 @@
 {
-	"Title": "<emo1F4C4> <time>: Новая заявка",
+	"NewTicketTitle": "<emo1F4C4> Новая заявка",
+	"AcceptedTicketTitle": "<emo1F552> Заявка в работе",
+	"DoneTicketTitle": "<emo2705> Заявка выполнена",
+	"DropTicketTitle": "<emo274C> Заявка отклонена",
 	"CompletedMessage": "Заявка создана",
 	"AcceptButtonLabel": "<emo1F446> Принять",
-	"AcceptedTitle": "<emo23F3> <time>: <user> принял заявку",
-	"DoneTitle": "<emo2705> <time>: <user> выполнил заявку",
-	"DropTitle": "<emo274C> <time>: <user> отклонил заявку",
 	"DoneButtonLabel": "<emo2705> Выполнено",
 	"DropButtonLabel": "<emo274C> Отклонено",
+	"NewTicketHistory": "<time>: <user> создано",
+	"AcceptedTicketHistory": "<time>: <user> принято",
+	"DoneTicketHistory": "<time>: <user> выполнено",
+	"DropTicketHistory": "<time>: <user> отклонено",
 	"FieldNames": [
 		"Тема",
-		"Телефон",
 		"Адрес",
 		"Время"
 	]

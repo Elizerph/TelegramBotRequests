@@ -4,20 +4,6 @@ namespace TelegramBotTest.Utils
 {
     public static class FileExtension
     {
-        public static async Task<TryAsyncResult<T>> TryReadAsync<T>(string file)
-        {
-            try
-            {
-                var text = await File.ReadAllTextAsync(file);
-                var result = JsonConvert.DeserializeObject<T>(text);
-                return TryAsyncResult.FromResult(result);
-            }
-            catch (Exception e)
-            {
-                return TryAsyncResult.FromException<T>(e);
-            }
-        }
-
         public static async Task<TryAsyncResult<string>> TryReadAsync(string file)
         {
             try
@@ -31,17 +17,17 @@ namespace TelegramBotTest.Utils
             }
         }
 
-        public static async Task<TryAsyncResult> TrySaveAsync<T>(string file, T value)
+        public static async Task<TryAsyncResult<T>> TryReadAsync<T>(string file)
         {
             try
             {
-                var text = JsonConvert.SerializeObject(value);
-                await File.WriteAllTextAsync(file, text);
-                return TryAsyncResult.Success;
+                var text = await File.ReadAllTextAsync(file);
+                var result = JsonConvert.DeserializeObject<T>(text);
+                return TryAsyncResult.FromResult(result);
             }
             catch (Exception e)
             {
-                return TryAsyncResult.FromException(e);
+                return TryAsyncResult.FromException<T>(e);
             }
         }
 
@@ -58,5 +44,9 @@ namespace TelegramBotTest.Utils
             }
         }
 
+        public static Task<TryAsyncResult> TrySaveAsync<T>(string file, T value)
+        {
+            return TrySaveAsync(file, JsonConvert.SerializeObject(value));
+        }
     }
 }

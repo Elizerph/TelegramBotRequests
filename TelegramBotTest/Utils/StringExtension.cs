@@ -22,5 +22,10 @@ namespace TelegramBotTest.Utils
             }
             return text;
         }
+
+        public static string JoinLines(this IEnumerable<string> lines) 
+        {
+            return string.Join(Environment.NewLine, lines);
+        }
     }
 }

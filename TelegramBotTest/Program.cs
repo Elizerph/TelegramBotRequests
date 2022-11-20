@@ -1,8 +1,12 @@
-﻿using log4net.Config;
+﻿using ElizerBot;
+using ElizerBot.Adapter;
+using ElizerBot.Adapter.Triggers;
+
+using log4net.Config;
 
 using System.Reflection;
 
-using Telegram.Bot;
+using TelegramBotTest.Components;
 
 namespace TelegramBotTest
 {
@@ -26,16 +30,25 @@ namespace TelegramBotTest
                     return;
                 }
 
-                var client = new TelegramBotClient(token);
-                var bot = new Bot();
-                await bot.Init(client);
-                var updateHandler = new UpdateHandler(bot);
-
                 var cts = new CancellationTokenSource();
                 Console.CancelKeyPress += (_, _) => cts.Cancel();
 
                 Log.WriteInfo("Bot started. Press ^C to stop");
-                await client.ReceiveAsync(updateHandler, cancellationToken: cts.Token);
+                var context = new Context();
+                await context.Init();
+                var updateHandler = new TriggerBasedBotUpdateHandler<Context>(context, 
+                    ComponentsBuilder.BuildButtons(), 
+                    ComponentsBuilder.BuildCommands(), 
+                    ComponentsBuilder.BuildMessages());
+                var bot = updateHandler.BuildAdapter(SupportedMessenger.Telegram, token);
+                await bot.Init();
+                await bot.SetCommands(new Dictionary<string, string>
+                {
+                    { "setthischat", "Задать этот чат для заявок" },
+                    { "newrequest", "Новая заявка" }
+                });
+                await Task.Delay(-1, cts.Token);
+
                 Log.WriteInfo("Bot stopped");
             }
             catch (Exception ex)
