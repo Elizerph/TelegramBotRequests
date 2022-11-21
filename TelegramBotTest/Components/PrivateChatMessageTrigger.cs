@@ -2,9 +2,9 @@
 
 namespace TelegramBotTest.Components
 {
-    internal class PrivateChatMessageTrigger : MessageTrigger<Context>
+    public class PrivateChatMessageTrigger : MessageTrigger<Context>
     {
-        public PrivateChatMessageTrigger(Func<Context, MessageTriggerArgument, Task> action) 
+        public PrivateChatMessageTrigger(Func<Context, MessageTriggerArgument, Task> action)
             : base(action)
         {
         }

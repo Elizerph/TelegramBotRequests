@@ -6,20 +6,20 @@
 <h1>Telegram bot</h1>
 
 <div>
-    <button @onclick="DownloadFileChatId">
-        Download ChatId.txt
+    <button @onclick="DownloadFileSettings">
+        Download Settings.json
     </button>
     <label>
-        Upload ChatId.txt
-        <InputFile OnChange="@UploadFileChatId" />
+        Upload Settings.json
+        <InputFile OnChange="@UploadFileSettings" />
     </label>
 </div>
 <div>
     <button @onclick="DownloadFileTemplate">
-        Download Template.txt
+        Download Template.json
     </button>
     <label>
-        Upload Template.txt
+        Upload Template.json
         <InputFile OnChange="@UploadFileTemplate" />
     </label>
 </div>
@@ -37,9 +37,9 @@
         await JS.InvokeVoidAsync("downloadFileFromStream", file, streamRef);
     }
 
-    private Task DownloadFileChatId()
+    private Task DownloadFileSettings()
     {
-        return DownloadFile("Data/ChatId.txt");
+        return DownloadFile("Data/Settings.json");
     }
 
     private Task DownloadFileTemplate()
@@ -54,9 +54,9 @@
         await stream.CopyToAsync(fileStream);
     }
 
-    private Task UploadFileChatId(InputFileChangeEventArgs e)
+    private Task UploadFileSettings(InputFileChangeEventArgs e)
     {
-        return UploadFile("Data/ChatId.txt", e);
+        return UploadFile("Data/Settings.json", e);
     }
 
     private Task UploadFileTemplate(InputFileChangeEventArgs e)

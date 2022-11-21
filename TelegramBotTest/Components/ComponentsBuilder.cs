@@ -1,19 +1,21 @@
 ﻿using ElizerBot.Adapter;
 using ElizerBot.Adapter.Triggers;
-
 using TelegramBotTest.Utils;
 
 namespace TelegramBotTest.Components
 {
-    internal class ComponentsBuilder
+    public class ComponentsBuilder
     {
         public static IReadOnlyCollection<CommandTrigger<Context>> BuildCommands()
         {
             return new[]
             {
-                new CommandTrigger<Context>("setthischat", (c, a) => 
+                new CommandTrigger<Context>("setthischat", async (c, a) =>
                 {
-                    return c.SetupTargetChat(a.Chat.Id);
+                    if (a.Chat.IsPrivate)
+                        await a.Bot.SendRandomEmo(a.Chat);
+                    else
+                        await c.SetupTargetChat(a.Chat.Id);
                 }),
                 new CommandTrigger<Context>("newrequest", async (c, a) =>
                 {
@@ -28,20 +30,28 @@ namespace TelegramBotTest.Components
                         await a.Bot.SendMessage(message);
                     }
                     else
-                    {
-                        var message = new NewMessageAdapter(a.Chat)
-                        {
-                            Text = a.Chat.Id,
-                        };
-                        await a.Bot.SendMessage(message);
-                    }
+                        await a.Bot.SendRandomEmo(a.Chat);
+                }),
+                new CommandTrigger<Context>("subscribereport", async (c, a) =>
+                {
+                    if (a.Chat.IsPrivate)
+                        await c.SubscribeReport(a.Chat.Id);
+                    else
+                        await a.Bot.SendRandomEmo(a.Chat);
+                }),
+                new CommandTrigger<Context>("unsubscribereport", async (c, a) =>
+                {
+                    if (a.Chat.IsPrivate)
+                        await c.UnsubscibeReport(a.Chat.Id);
+                    else
+                        await a.Bot.SendRandomEmo(a.Chat);
                 })
             };
         }
 
-        public static IReadOnlyCollection<MessageTrigger<Context>> BuildMessages() 
+        public static IReadOnlyCollection<MessageTrigger<Context>> BuildMessages()
         {
-            return new[] 
+            return new[]
             {
                 new PrivateChatMessageTrigger(async (c, a) =>
                 {
@@ -66,9 +76,9 @@ namespace TelegramBotTest.Components
                             };
                             await a.Bot.SendMessage(completedMessage);
 
-                            var targetChatId = string.IsNullOrEmpty(c.TargetChatId) || string.Equals(c.TargetChatId, "0")
-                                ? a.Message.Chat.Id 
-                                : c.TargetChatId;
+                            var targetChatId = string.IsNullOrEmpty(c.Settings.TargetChatId) || string.Equals(c.Settings.TargetChatId, "0")
+                                ? a.Message.Chat.Id
+                                : c.Settings.TargetChatId;
                             var targetChat = new ChatAdapter(targetChatId, false);
 
                             var ticketTextLines = new List<string>
@@ -80,19 +90,20 @@ namespace TelegramBotTest.Components
                             var ticketMessage = new NewMessageAdapter(targetChat)
                             {
                                 Text = ticketTextLines.JoinLines(),
-                                Buttons = new [] 
-                                { 
-                                    new[] 
+                                Buttons = new []
+                                {
+                                    new[]
                                     {
                                         new ButtonAdapter
-                                        { 
+                                        {
                                             Data = "accept",
                                             Label = c.Template.AcceptButtonLabel.InsertEmo()
                                         }
                                     }
                                 }
                             };
-                            await a.Bot.SendMessage(ticketMessage);
+                            var ticketFeedback = await a.Bot.SendMessage(ticketMessage);
+                            await c.Repository.Save(ticketFeedback.Id, ticketFeedback.Text);
                         }
                     }
                 })
@@ -108,11 +119,11 @@ namespace TelegramBotTest.Components
             return template.Replace("<user>", userMoniker).Replace("<time>", DateTime.Now.ToShortTimeString());
         }
 
-        public static IReadOnlyCollection<Trigger<Context, ButtonTriggerArgument>> BuildButtons() 
+        public static IReadOnlyCollection<Trigger<Context, ButtonTriggerArgument>> BuildButtons()
         {
-            return new Trigger<Context, ButtonTriggerArgument>[] 
+            return new Trigger<Context, ButtonTriggerArgument>[]
             {
-                new ButtonTrigger<Context>("accept", async (c, a) => 
+                new ButtonTrigger<Context>("accept", async (c, a) =>
                 {
                     var postedMessage = a.Message;
                     var text = postedMessage.Text.SplitLines().ToList();
@@ -136,7 +147,8 @@ namespace TelegramBotTest.Components
                             }
                         }
                     };
-                    await a.Bot.EditMessage(postedMessage);
+                    var feedback = await a.Bot.EditMessage(postedMessage);
+                    await c.Repository.Save(postedMessage.Id, postedMessage.Text);
                 }),
                 new ParametrizedButtonTrigger<Context>("done", "$", async (c, a) =>
                 {
@@ -150,7 +162,8 @@ namespace TelegramBotTest.Components
                         text.Add(GetHistoryRecord(c.Template.DoneTicketHistory, a.User).InsertEmo());
                         postedMessage.Text = text.JoinLines();
                         postedMessage.Buttons = null;
-                        await a.Bot.EditMessage(postedMessage); 
+                        var feedback = await a.Bot.EditMessage(postedMessage);
+                        await c.Repository.Save(postedMessage.Id, postedMessage.Text);
                     }
                 }),
                 new ParametrizedButtonTrigger<Context>("drop", "$", async (c, a) =>
@@ -165,7 +178,8 @@ namespace TelegramBotTest.Components
                         text.Add(GetHistoryRecord(c.Template.DropTicketHistory, a.User).InsertEmo());
                         postedMessage.Text = text.JoinLines();
                         postedMessage.Buttons = null;
-                        await a.Bot.EditMessage(postedMessage);
+                        var feedback = await a.Bot.EditMessage(postedMessage);
+                        await c.Repository.Save(postedMessage.Id, postedMessage.Text);
                     }
                 })
             };

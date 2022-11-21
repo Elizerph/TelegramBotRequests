@@ -1,6 +1,6 @@
 ﻿using log4net;
 
-namespace TelegramBotTest
+namespace TelegramBotTest.Components
 {
     public static class Log
     {

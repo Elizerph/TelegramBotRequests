@@ -8,7 +8,8 @@
 	<Version>1.0.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ElizerBot" Version="1.0.6" />
+    <PackageReference Include="ElizerBot" Version="1.0.9" />
+    <PackageReference Include="ElizerWork" Version="1.0.2" />
     <PackageReference Include="log4net" Version="2.0.15" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.17.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
@@ -17,7 +18,7 @@
     <None Update="App.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Data\ChatId.txt">
+    <None Update="Data\Settings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Data\Template.json">

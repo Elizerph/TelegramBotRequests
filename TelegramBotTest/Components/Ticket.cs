@@ -1,4 +1,4 @@
-﻿namespace TelegramBotTest
+﻿namespace TelegramBotTest.Components
 {
     public class Ticket
     {
