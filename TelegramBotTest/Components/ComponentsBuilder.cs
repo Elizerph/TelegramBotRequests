@@ -66,7 +66,7 @@ namespace TelegramBotTest.Components
                             };
                             await a.Bot.SendMessage(completedMessage);
 
-                            var targetChatId = string.IsNullOrEmpty(c.TargetChatId) 
+                            var targetChatId = string.IsNullOrEmpty(c.TargetChatId) || string.Equals(c.TargetChatId, "0")
                                 ? a.Message.Chat.Id 
                                 : c.TargetChatId;
                             var targetChat = new ChatAdapter(targetChatId, false);
