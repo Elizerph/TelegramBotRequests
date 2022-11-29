@@ -9,9 +9,9 @@ namespace TelegramBotTest.Components
         {
         }
 
-        public override bool Validate(MessageTriggerArgument arg)
+        public override Task<bool> Validate(MessageTriggerArgument arg)
         {
-            return arg.Message.Chat.IsPrivate && !string.IsNullOrEmpty(arg.Message.Text);
+            return Task.FromResult(arg.Message.Chat.IsPrivate && !string.IsNullOrEmpty(arg.Message.Text));
         }
     }
 }

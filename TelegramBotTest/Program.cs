@@ -15,7 +15,7 @@ namespace TelegramBotTest
 {
     class Program
     {
-        private const string TokenVariableName = "token";
+        private const string TokenVariableName = "telegrambottoken";
 
         static async Task Main(string[] args)
         {
@@ -32,9 +32,6 @@ namespace TelegramBotTest
                     Log.WriteInfo("Token is not set");
                     return;
                 }
-
-                var cts = new CancellationTokenSource();
-                Console.CancelKeyPress += (_, _) => cts.Cancel();
 
                 var repository = new MemoryMessageRepository();
                 var context = new Context(repository);
@@ -53,11 +50,7 @@ namespace TelegramBotTest
                     { "unsubscribereport", "Личный чат: отписаться от отчетов" }
                 });
 
-                var beatValue = ConfigurationManager.AppSettings["workerBeatSeconds"];
-                if (string.IsNullOrEmpty(beatValue) || !int.TryParse(beatValue, out var beatSeconds))
-                    beatSeconds = 60;
-                var worker = new Worker(TimeSpan.FromSeconds(beatSeconds));
-                var dailyReportTask = new TaskWorkItem(DateTime.Now, async () => {
+                var dailyReportTask = async () => {
                     var subscribers = context.Settings.ReportSubscribers;
                     if (subscribers != null && subscribers.Any())
                     {
@@ -77,7 +70,10 @@ namespace TelegramBotTest
                                 var message = new NewMessageAdapter(chat)
                                 {
                                     Text = "Отчет",
-                                    Attachment = new FileDescriptorAdapter(fileName, () => memo)
+                                    Attachments = new[] 
+                                    { 
+                                        new FileDescriptorAdapter(fileName, async () => memo) 
+                                    }
                                 };
                                 await bot.SendMessage(message);
                                 await Task.Delay(TimeSpan.FromSeconds(1));
@@ -86,12 +82,24 @@ namespace TelegramBotTest
                             await repository.Clear();
                         }
                     }
-                });
-                var recurring = new RecurringWorkItem(context.Settings.ReportTime, worker, dailyReportTask, TimeSpan.FromDays(1));
-                worker.Queue(recurring);
+                };
+
+                var beatValue = ConfigurationManager.AppSettings["workerBeatSeconds"];
+                if (string.IsNullOrEmpty(beatValue) || !int.TryParse(beatValue, out var beatSeconds))
+                    beatSeconds = 60;
+                var worker = new Worker(TimeSpan.FromSeconds(beatSeconds), () => DateTime.UtcNow);
+                var workItemCts = new CancellationTokenSource();
+                var workItem = new WorkItem(context.Settings.ReportTime, TimeSpan.FromDays(1), dailyReportTask, workItemCts);
+
+                var cts = new CancellationTokenSource();
+                Console.CancelKeyPress += (_, _) =>
+                { 
+                    cts.Cancel();
+                    workItemCts.Cancel();
+                };
 
                 Log.WriteInfo("Bot started. Press ^C to stop");
-                await worker.Run(cts.Token);
+                await worker.Start(new[] { workItem });
                 await Task.Delay(-1, cts.Token);
                 Log.WriteInfo("Bot stopped");
             }
